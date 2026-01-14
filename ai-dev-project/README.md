@@ -1,6 +1,6 @@
 # Databricks AI Dev Project (Starter Project / Template)
 
-A template for creating a new project configured with Databricks AI Dev Kit for Claude Code or Cursor. Use this as a template to create a new AI coding project focused on Databricks. It can also be used to experiment with the skils, MCP server integration, and test tools before using them in a real project.
+A template for creating a new project configured with Databricks AI Dev Kit for Claude Code or Cursor. Use this as a template to create a new AI coding project focused on Databricks. It can also be used to experiment with the skills, MCP server integration, and test tools before using them in a real project.
 
 ## Prerequisites
 
@@ -68,24 +68,40 @@ List the catalogs in my workspace
 
 ## MCP Server Configuration
 
-The setup script registers the MCP server using `claude mcp add`:
+The setup script registers the `databricks-mcp-server` to run from the sibling directory.
 
-```bash
-claude mcp add --transport stdio databricks -- uv run --directory ../databricks-mcp-server python -m databricks_mcp_server.server
+### Manual MCP Configuration - Claude
+
+In your project directory, create `.mcp.json` (Claude) or `.cursor/mcp.json` (Cursor). **Replace `/path/to/ai-dev-kit`** with the actual path where you cloned the repo.
+
+
+```json
+{
+  "mcpServers": {
+    "databricks": {
+      "command": "/path/to/ai-dev-kit/databricks-mcp-server/.venv/bin/python",
+      "args": ["/path/to/ai-dev-kit/databricks-mcp-server/run_server.py"]
+    }
+  }
+}
 ```
 
-This registers the `databricks-mcp-server` to run from the sibling directory.
 
-### Manual MCP Configuration
+### Manual MCP Configuration - Claude CLI
 
-To manually add or reconfigure the MCP server:
+To manually add or reconfigure the MCP server from another project directory:
 
+Set variable with directory to your path:
+```bash
+export MCP_SERVER_DIR=/path/to/databricks-mcp-server
+```
+
+Run remove and add script for Claude. 
 ```bash
 # Remove existing (if any)
 claude mcp remove databricks
 
-# Add with custom path
-claude mcp add --transport stdio databricks -- uv run --directory /path/to/databricks-mcp-server python -m databricks_mcp_server.server
+claude mcp add --transport stdio databricks -- ${MCP_SERVER_DIR}/.venv/bin/python -- ${MCP_SERVER_DIR}/run_server.py
 ```
 
 To verify the server is configured:
@@ -98,22 +114,42 @@ claude mcp list
 
 Once configured, Claude has access to these Databricks tools:
 
+### SQL Warehouse Tools
 | Tool | Description |
 |------|-------------|
-| `mcp__databricks__execute_sql` | Run SQL queries on a warehouse |
-| `mcp__databricks__execute_sql_multi` | Run multiple SQL statements with parallelism |
-| `mcp__databricks__list_warehouses` | List available SQL warehouses |
-| `mcp__databricks__get_best_warehouse` | Auto-select the best warehouse |
-| `mcp__databricks__get_table_details` | Get table schema and statistics |
-| `mcp__databricks__execute_databricks_command` | Run code on a cluster |
-| `mcp__databricks__run_python_file_on_databricks` | Execute Python files on cluster |
-| `mcp__databricks__upload_folder` | Upload folders to workspace |
-| `mcp__databricks__upload_file` | Upload files to workspace |
-| `mcp__databricks__create_or_update_pipeline` | Create/update SDP pipelines |
-| `mcp__databricks__start_update` | Start a pipeline run |
-| `mcp__databricks__get_update` | Check pipeline run status |
-| `mcp__databricks__get_pipeline_events` | Get pipeline error details |
-| `mcp__databricks__stop_pipeline` | Stop a running pipeline |
+| `mcp_databricks_execute_sql` | Execute SQL on Databricks SQL Warehouse |
+| `mcp_databricks_execute_sql_multi` | Execute multiple SQL statements with dependency-aware parallelism |
+| `mcp_databricks_list_warehouses` | List all SQL warehouses |
+| `mcp_databricks_get_best_warehouse` | Get best available SQL warehouse |
+| `mcp_databricks_get_table_details` | Get table schema and statistics |
+
+### Cluster Tools
+| Tool | Description |
+|------|-------------|
+| `mcp_databricks_list_clusters` | List all clusters |
+| `mcp_databricks_get_best_cluster` | Get best available cluster |
+| `mcp_databricks_execute_databricks_command` | Execute code (Python/Scala/SQL/R) on cluster |
+| `mcp_databricks_run_python_file_on_databricks` | Run local Python file on cluster |
+
+### Workspace File Tools
+| Tool | Description |
+|------|-------------|
+| `mcp_databricks_upload_folder` | Upload folder to Databricks workspace |
+| `mcp_databricks_upload_file` | Upload file to Databricks workspace |
+
+### Pipeline Tools
+| Tool | Description |
+|------|-------------|
+| `mcp_databricks_create_or_update_pipeline` | Main tool for pipeline management (create/update/run) |
+| `mcp_databricks_find_pipeline_by_name` | Find pipeline by name |
+| `mcp_databricks_create_pipeline` | Create new pipeline |
+| `mcp_databricks_get_pipeline` | Get pipeline details |
+| `mcp_databricks_update_pipeline` | Update pipeline configuration |
+| `mcp_databricks_delete_pipeline` | Delete pipeline |
+| `mcp_databricks_start_update` | Start pipeline update/validation |
+| `mcp_databricks_get_update` | Get pipeline update status |
+| `mcp_databricks_stop_pipeline` | Stop running pipeline |
+| `mcp_databricks_get_pipeline_events` | Get pipeline events/errors |
 
 ## Skills
 
@@ -171,14 +207,16 @@ Check the MCP server logs - Claude Code shows tool errors in the chat. Common is
 ## Project Structure
 
 ```
-databricks-claude-test-project/
+ai-dev-project/
 ├── .claude/
-│   ├── mcp.json           # MCP server configuration
 │   └── skills/            # Installed Databricks skills
 │       ├── spark-declarative-pipelines/
 │       ├── dabs-writer/
 │       └── ...
+├── .cursor/
+│   └── mcp.json           # MCP server configuration
 ├── .gitignore             # Ignores test artifacts
+├── .mcp.json               # MCP server configuration
 ├── CLAUDE.md              # Project context for Claude
 ├── setup.sh               # Setup script
 ├── cleanup.sh             # Cleanup script

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Setup script for databricks-claude-test-project
+# Setup script for ai-dev-project
 # Installs skills and configures the MCP server
 #
 
@@ -26,44 +26,56 @@ fi
 echo "✓ uv is installed"
 
 # Check if skills directory exists
-if [ ! -d "$SCRIPT_DIR/$SKILLS_DIR" ]; then
-    echo "Error: Skills directory not found at $SCRIPT_DIR/$SKILLS_DIR"
+if [ ! -d "$SKILLS_DIR" ]; then
+    echo "Error: Skills directory not found at $$SKILLS_DIR"
     echo "Make sure you're running from the ai-dev-kit repository."
     exit 1
 fi
 echo "✓ Skills directory found"
 
 # Check if MCP server directory exists
-if [ ! -d "$SCRIPT_DIR/$MCP_SERVER_DIR" ]; then
-    echo "Error: MCP server directory not found at $SCRIPT_DIR/$MCP_SERVER_DIR"
+if [ ! -d "$MCP_SERVER_DIR" ]; then
+    echo "Error: MCP server directory not found at $MCP_SERVER_DIR"
     echo "Make sure you're running from the ai-dev-kit repository."
     exit 1
 fi
 echo "✓ MCP server directory found"
 
 # Verify MCP server is set up
-MCP_SERVER_ABS="$SCRIPT_DIR/$MCP_SERVER_DIR"
-MCP_PYTHON="$MCP_SERVER_ABS/.venv/bin/python"
+MCP_PYTHON="$MCP_SERVER_DIR/.venv/bin/python"
 
 echo ""
 echo "Checking MCP server setup..."
 if [ ! -f "$MCP_PYTHON" ]; then
-    echo "Error: MCP server venv not found at $MCP_SERVER_ABS/.venv"
+# Run the install skills script
     echo ""
-    echo "Please set up the MCP server first by running:"
-    echo "  cd $MCP_SERVER_ABS"
-    echo "  ./setup.sh   # or: uv venv && uv pip install -e ../databricks-tools-core -e ."
-    exit 1
+    echo "Setup Databricks MCP server..."
+    cd "$MCP_SERVER_DIR"
+    "$MCP_SERVER_DIR/setup.sh" "$@"
+    if [ ! -f "$MCP_PYTHON" ]; then 
+        echo "Error: MCP server venv not found at $MCP_SERVER_DIR/.venv"
+        echo ""
+        echo "Please debug MCP server setup first by running:"
+        echo "  cd $MCP_SERVER_DIR"
+        echo "  ./setup.sh   # or: uv venv && uv pip install -e ../databricks-tools-core -e ."
+        exit 1
+    fi
 fi
 
 # Verify the server can be imported
 if ! "$MCP_PYTHON" -c "import databricks_mcp_server" 2>/dev/null; then
-    echo "Error: MCP server packages not installed properly"
     echo ""
-    echo "Please set up the MCP server first by running:"
-    echo "  cd $MCP_SERVER_ABS"
-    echo "  ./setup.sh   # or: uv pip install -e ../databricks-tools-core -e ."
-    exit 1
+    echo "Setup Databricks MCP server..."
+    cd "$MCP_SERVER_DIR"
+    "$MCP_SERVER_DIR/setup.sh" "$@"
+    if ! "$MCP_PYTHON" -c "import databricks_mcp_server" 2>/dev/null; then 
+        echo "Error: MCP server packages not installed properly"
+        echo ""
+        echo "Please debug MCP server setup first by running:"
+        echo "  cd $MCP_SERVER_DIR"
+        echo "  ./setup.sh   # or: uv venv && uv pip install -e ../databricks-tools-core -e ."
+        exit 1
+    fi
 fi
 echo "✓ MCP server is set up"
 
@@ -71,43 +83,16 @@ echo "✓ MCP server is set up"
 echo ""
 echo "Installing Databricks skills..."
 cd "$SCRIPT_DIR"
-"$SCRIPT_DIR/$SKILLS_DIR/install_skills.sh" "$@"
-
-# Check for claude CLI
-# if ! command -v claude &> /dev/null; then
-#     echo ""
-#     echo "Warning: 'claude' CLI is not installed."
-#     echo "Install it from: https://claude.ai/code"
-#     echo "Skipping MCP server registration."
-# else
-#     # Register MCP server with Claude Code
-#     echo ""
-#     echo "Registering Databricks MCP server with Claude Code..."
-#     cd "$SCRIPT_DIR"
-
-#     # Remove existing server if present (to update config)
-#     claude mcp remove databricks 2>/dev/null || true
-
-#     # Add the MCP server using claude mcp add-json
-#     # Use the runner script to avoid Python -m module reimport issues
-#     MCP_RUNNER="$MCP_SERVER_ABS/run_server.py"
-#     if [ ! -f "$MCP_RUNNER" ]; then
-#         echo "Error: MCP runner script not found at $MCP_RUNNER"
-#         exit 1
-#     fi
-#     claude mcp add-json databricks "{\"command\":\"$MCP_PYTHON\",\"args\":[\"$MCP_RUNNER\"]}"
-#     echo "✓ MCP server registered"
-# fi
+"$SKILLS_DIR/install_skills.sh" "$@"
 
 # Populate .mcp.json (for Claude Code) and .cursor/mcp.json (for Cursor) with the MCP server configuration
 # Build development-purpose mcpServers configuration for direct python runner using this environment
-
 MCP_DEV_CONFIG=$(cat <<EOF
 {
   "mcpServers": {
     "databricks": {
-      "command": "$MCP_SERVER_ABS/.venv/bin/python",
-      "args": ["$MCP_SERVER_ABS/run_server.py"]
+      "command": "$MCP_SERVER_DIR/.venv/bin/python",
+      "args": ["$MCP_SERVER_DIR/run_server.py"]
     }
   }
 }

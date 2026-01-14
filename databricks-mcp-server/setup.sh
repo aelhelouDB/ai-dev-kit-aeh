@@ -60,8 +60,21 @@ if .venv/bin/python -c "import databricks_mcp_server; print('✓ MCP server can 
     echo "To run the MCP server:"
     echo "  .venv/bin/python run_server.py"
     echo ""
-    echo "To use with Claude Code:"
+    echo "To setup in the project, paste this into .mcp.json (Claude) or .cursor/mcp.json (Cursor):"
+    cat <<EOF
+    {
+      "mcpServers": {
+        "databricks": {
+          "command": "${SCRIPT_DIR}/.venv/bin/python",
+          "args": ["${SCRIPT_DIR}/run_server.py"]
+        }
+      }
+    }
+EOF
+    echo ""
+    echo "To setup with Claude Code CLI:"
     echo "  claude mcp add-json databricks '{\"command\":\"$SCRIPT_DIR/.venv/bin/python\",\"args\":[\"$SCRIPT_DIR/run_server.py\"]}'"
+    echo ""
 else
     echo "Error: Failed to import databricks_mcp_server"
     exit 1
