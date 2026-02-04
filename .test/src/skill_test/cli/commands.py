@@ -86,6 +86,12 @@ class InteractiveResult:
     saved_to: Optional[str] = None  # "ground_truth.yaml" or "candidates.yaml"
     auto_approved: bool = False  # True if all blocks passed and auto-promoted
 
+    # Trace evaluation results (when capture_trace=True)
+    trace_source: Optional[str] = None  # "mlflow:{run_id}" or "local:{path}"
+    trace_results: Optional[List[Dict[str, Any]]] = None  # Scorer results
+    trace_mlflow_enabled: bool = False  # Whether MLflow autolog was enabled
+    trace_error: Optional[str] = None  # Error during trace capture
+
     # Errors
     error: Optional[str] = None
     message: str = ""
@@ -568,6 +574,7 @@ def interactive(
     ctx: CLIContext,
     fixture_config: Optional[TestFixtureConfig] = None,
     auto_approve_on_success: bool = True,
+    capture_trace: bool = False,
 ) -> InteractiveResult:
     """Interactive test generation with Databricks execution.
 
@@ -577,6 +584,7 @@ def interactive(
     3. If ALL blocks pass and auto_approve_on_success: save to ground_truth.yaml
     4. If ANY block fails: save to candidates.yaml for GRP review
     5. Optionally tear down fixtures
+    6. Optionally evaluate session trace (if capture_trace=True)
 
     Args:
         skill_name: Name of the skill being tested
@@ -585,6 +593,7 @@ def interactive(
         ctx: CLI context with MCP tools
         fixture_config: Optional fixture configuration for test setup
         auto_approve_on_success: If True, auto-save to ground_truth on success
+        capture_trace: If True, evaluate trace after execution (MLflow if configured, else local)
 
     Returns:
         InteractiveResult with execution details and outcome
@@ -760,6 +769,54 @@ def interactive(
         result.fixtures_teardown = teardown_result.success
         if result.fixture_details:
             result.fixture_details["teardown"] = teardown_result.details
+
+    # 5. Optionally evaluate trace
+    if capture_trace:
+        try:
+            from ..trace.source import get_trace_from_best_source, check_autolog_status
+            from ..scorers.trace import get_trace_scorers
+
+            status = check_autolog_status()
+            result.trace_mlflow_enabled = status.enabled
+
+            metrics, source = get_trace_from_best_source(skill_name)
+            result.trace_source = source
+
+            # Load trace expectations from manifest
+            manifest_path = ctx.base_path / skill_name / "manifest.yaml"
+            expectations = {}
+            if manifest_path.exists():
+                with open(manifest_path) as f:
+                    manifest = yaml.safe_load(f) or {}
+                # Look for trace_expectations in scorers section or at top level
+                if "scorers" in manifest and "trace_expectations" in manifest["scorers"]:
+                    expectations = manifest["scorers"]["trace_expectations"]
+                elif "trace_expectations" in manifest:
+                    expectations = manifest["trace_expectations"]
+
+            # Run trace scorers
+            trace_dict = metrics.to_dict()
+            trace_results = []
+            for scorer in get_trace_scorers():
+                try:
+                    feedback = scorer(trace=trace_dict, expectations=expectations)
+                    trace_results.append({
+                        "name": feedback.name,
+                        "value": feedback.value,
+                        "rationale": feedback.rationale,
+                    })
+                except Exception as e:
+                    scorer_name = getattr(scorer, "__name__", str(scorer))
+                    trace_results.append({
+                        "name": scorer_name,
+                        "value": "error",
+                        "rationale": str(e),
+                    })
+
+            result.trace_results = trace_results
+
+        except Exception as e:
+            result.trace_error = str(e)
 
     return result
 
@@ -1020,6 +1077,7 @@ def trace_eval(
     ctx: CLIContext,
     trace_path: Optional[str] = None,
     run_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
     trace_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate trace(s) against skill expectations.
@@ -1028,6 +1086,7 @@ def trace_eval(
     Traces can be provided via:
     - Local JSONL file (--trace)
     - MLflow run ID (--run-id)
+    - MLflow trace ID (--trace-id)
     - Directory of trace files (--trace-dir)
 
     Args:
@@ -1035,6 +1094,7 @@ def trace_eval(
         ctx: CLI context
         trace_path: Path to a local JSONL trace file
         run_id: MLflow run ID containing the trace
+        trace_id: MLflow trace ID (e.g., "tr-...")
         trace_dir: Directory containing multiple trace files
 
     Returns:
@@ -1047,24 +1107,24 @@ def trace_eval(
         - violations: List of any violations found
     """
     from ..trace.parser import parse_and_compute_metrics
-    from ..trace.mlflow_integration import get_trace_from_mlflow, get_trace_metrics
+    from ..trace.mlflow_integration import get_trace_from_mlflow, get_trace_by_id, get_trace_metrics
     from ..scorers.trace import get_trace_scorers
 
     # Validate inputs - must provide exactly one trace source
-    sources = [trace_path, run_id, trace_dir]
+    sources = [trace_path, run_id, trace_id, trace_dir]
     provided = sum(1 for s in sources if s is not None)
 
     if provided == 0:
         return {
             "success": False,
-            "error": "Must provide one of: --trace, --run-id, or --trace-dir",
+            "error": "Must provide one of: --trace, --run-id, --trace-id, or --trace-dir",
             "skill_name": skill_name,
         }
 
     if provided > 1:
         return {
             "success": False,
-            "error": "Provide only one of: --trace, --run-id, or --trace-dir",
+            "error": "Provide only one of: --trace, --run-id, --trace-id, or --trace-dir",
             "skill_name": skill_name,
         }
 
@@ -1123,6 +1183,18 @@ def trace_eval(
                 "error": f"Failed to get trace from MLflow: {e}",
                 "skill_name": skill_name,
                 "run_id": run_id,
+            }
+
+    elif trace_id:
+        try:
+            metrics = get_trace_by_id(trace_id)
+            traces_to_eval.append({"source": f"mlflow-trace:{trace_id}", "metrics": metrics})
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to get trace by ID: {e}",
+                "skill_name": skill_name,
+                "trace_id": trace_id,
             }
 
     elif trace_dir:

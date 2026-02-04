@@ -293,6 +293,100 @@ def get_latest_trace_run(
     return None
 
 
+def get_trace_by_id(
+    trace_id: str,
+    tracking_uri: str = "databricks",
+) -> TraceMetrics:
+    """Fetch trace directly by trace ID using mlflow.get_trace().
+
+    This is different from get_trace_from_mlflow() which takes a run_id.
+    Trace IDs look like "tr-d416fccdab46e2dea6bad1d0bd8aaaa8".
+
+    Args:
+        trace_id: MLflow trace ID (e.g., "tr-...")
+        tracking_uri: MLflow tracking URI (default: "databricks")
+
+    Returns:
+        TraceMetrics computed from the trace
+
+    Raises:
+        ImportError: If mlflow is not installed
+        ValueError: If trace not found
+    """
+    try:
+        import mlflow
+    except ImportError as e:
+        raise ImportError(
+            "mlflow is required for MLflow integration. "
+            "Install with: pip install mlflow[databricks]"
+        ) from e
+
+    _configure_mlflow(tracking_uri)
+
+    trace = mlflow.get_trace(trace_id)
+    if trace is None:
+        raise ValueError(f"Trace not found: {trace_id}")
+
+    return _parse_mlflow_trace(trace)
+
+
+def _parse_mlflow_trace(trace: Any) -> TraceMetrics:
+    """Parse an MLflow Trace object into TraceMetrics.
+
+    Args:
+        trace: MLflow Trace object from mlflow.get_trace()
+
+    Returns:
+        TraceMetrics with available data
+    """
+    from datetime import datetime, timedelta
+
+    # Get trace info
+    trace_info = trace.info
+    metrics = TraceMetrics(session_id=trace_info.request_id)
+
+    # Extract timestamps
+    if trace_info.timestamp_ms:
+        metrics.start_time = datetime.fromtimestamp(trace_info.timestamp_ms / 1000)
+        # Compute end_time from start_time + execution_time for duration_seconds property
+        if trace_info.execution_time_ms:
+            metrics.end_time = metrics.start_time + timedelta(milliseconds=trace_info.execution_time_ms)
+
+    # Extract token usage from trace attributes if available
+    if hasattr(trace_info, "request_metadata") and trace_info.request_metadata:
+        metadata = trace_info.request_metadata
+        if isinstance(metadata, dict):
+            metrics.total_input_tokens = int(metadata.get("total_input_tokens", 0))
+            metrics.total_output_tokens = int(metadata.get("total_output_tokens", 0))
+
+    # Parse spans (tool calls, LLM calls, etc.)
+    tool_calls = []
+    tool_counts: Dict[str, int] = {}
+
+    if trace.data and hasattr(trace.data, "spans"):
+        for span in trace.data.spans:
+            span_name = span.name if hasattr(span, "name") else "unknown"
+            span_type = span.span_type if hasattr(span, "span_type") else None
+
+            # Check if this is a tool call span
+            if span_type == "TOOL" or "tool" in span_name.lower():
+                tc = ToolCall(
+                    id=span.span_id if hasattr(span, "span_id") else "",
+                    name=span_name,
+                    input=span.inputs if hasattr(span, "inputs") else {},
+                    timestamp=None,
+                    result=str(span.outputs) if hasattr(span, "outputs") else "",
+                )
+                tool_calls.append(tc)
+                tool_counts[span_name] = tool_counts.get(span_name, 0) + 1
+
+    metrics.tool_calls = tool_calls
+    metrics.tool_counts = tool_counts
+    metrics.total_tool_calls = len(tool_calls)
+
+    return metrics
+
+
 def get_trace_metrics(
     source: Union[str, Path],
     tracking_uri: str = "databricks",

@@ -23,6 +23,12 @@ def main():
     parser.add_argument("--prompt", help="Test prompt (will be requested interactively if not provided)")
     parser.add_argument("--response", help="Skill response (if already generated)")
     parser.add_argument("--no-auto-approve", action="store_true", help="Don't auto-approve on success")
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        default=False,
+        help="Evaluate trace after skill invocation (MLflow if configured, else local)",
+    )
     args = parser.parse_args()
 
     setup_path()
@@ -63,7 +69,8 @@ def main():
             prompt,
             response,
             ctx,
-            auto_approve_on_success=not args.no_auto_approve
+            auto_approve_on_success=not args.no_auto_approve,
+            capture_trace=args.trace,
         )
 
         # Convert InteractiveResult to dict for JSON output
@@ -80,6 +87,14 @@ def main():
         }
         if result.error:
             result_dict["error"] = result.error
+
+        # Include trace results if captured
+        if hasattr(result, "trace_source") and result.trace_source:
+            result_dict["trace_source"] = result.trace_source
+        if hasattr(result, "trace_results") and result.trace_results:
+            result_dict["trace_results"] = result.trace_results
+        if hasattr(result, "trace_error") and result.trace_error:
+            result_dict["trace_error"] = result.trace_error
 
         sys.exit(print_result(result_dict))
 
