@@ -247,13 +247,30 @@ def _run_agent_in_fresh_loop(message, options, result_queue, context, is_cancell
         yield {'type': 'user', 'message': {'role': 'user', 'content': message}}
 
       try:
+        msg_count = 0
         async for msg in query(prompt=prompt_generator(), options=options):
+          msg_count += 1
+          msg_type = type(msg).__name__
+          logger.info(f"[AGENT DEBUG] Received message #{msg_count}: {msg_type}")
+
+          # Log more details for specific message types
+          if hasattr(msg, 'content'):
+            content = msg.content
+            if isinstance(content, list):
+              block_types = [type(b).__name__ for b in content]
+              logger.info(f"[AGENT DEBUG]   Content blocks: {block_types}")
+          if hasattr(msg, 'is_error') and msg.is_error:
+            logger.error(f"[AGENT DEBUG]   is_error=True")
+          if hasattr(msg, 'session_id'):
+            logger.info(f"[AGENT DEBUG]   session_id={msg.session_id}")
+
           # Check for cancellation before processing each message
           if is_cancelled_fn():
             logger.info("Agent cancelled by user request")
             result_queue.put(('cancelled', None))
             return
           result_queue.put(('message', msg))
+        logger.info(f"[AGENT DEBUG] query() loop completed normally after {msg_count} messages")
       except asyncio.CancelledError:
         logger.warning("Agent query was cancelled (asyncio.CancelledError)")
         result_queue.put(('error', Exception("Agent query cancelled - likely due to stream timeout or connection issue")))
