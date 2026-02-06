@@ -5,73 +5,27 @@ description: "Creates, configures, and updates Databricks Lakeflow Spark Declara
 
 # Lakeflow Spark Declarative Pipelines (SDP)
 
-## Quick Reference
-
-| Concept | Details |
-|---------|---------|
-| **Names** | SDP = Spark Declarative Pipelines = LDP = Lakeflow Declarative Pipelines = Lakeflow Pipelines (all interchangeable) |
-| **Python Import** | `from pyspark import pipelines as dp` |
-| **Primary Decorators** | `@dp.table()`, `@dp.materialized_view()`, `@dp.temporary_view()` |
-| **Temporary Views** | `@dp.temporary_view()` creates in-pipeline temporary views (no catalog/schema, no cluster_by). Useful for intermediate logic before AUTO CDC or when a view needs multiple references without persistence. |
-| **Replaces** | Delta Live Tables (DLT) with `import dlt` |
-| **Based On** | Apache Spark 4.1+ (Databricks' modern data pipeline framework) |
-| **Docs** | https://docs.databricks.com/aws/en/ldp/developer/python-dev |
+IMPORTANT: If this is a new pipeline (one does not already exist), see Quick Start. Be sure to use whatever language user has specified only (Python or SQL). Be sure to use Databricks Asset Bundles for new projects.
 
 ---
 
-## Detailed guides
+## Critical Rules (always follow)
+- **MUST** confirm language as Python or SQL. Stick with that language unless told otherwise.
+- **MUST** if not modifying an existing pipeline, use [Quick Start](#quick-start) below.
+- **MUST** create serverless pipelines  by default. ** Only use classic clusters if user explicitly requires R language, Spark RDD APIs, or JAR libraries.
 
-**Ingestion patterns**: Use [1-ingestion-patterns.md](1-ingestion-patterns.md) when planning how to get new data into your Lakeflow pipeline —- covers file formats, batch/streaming options, and tips for incremental and full loads. (Keywords: Auto Loader, Kafka, Event Hub, Kinesis, file formats)
 
-**Streaming pipeline patterns**: See [2-streaming-patterns.md](2-streaming-patterns.md) for designing pipelines with streaming data sources, change data detection, triggers, and windowing. (Keywords: deduplication, windowing, stateful operations, joins)
+## Required Steps
 
-**SCD query patterns**: See [3-scd-query-patterns.md](3-scd-query-patterns.md) for querying Slowly Changing Dimensions Type 2 history tables, including current state queries, point-in-time analysis, temporal joins, and change tracking. (Keywords: SCD Type 2 history tables, temporal joins, querying historical data)
+Copy this checklist and verify each item:
+```
+- [ ] Language selected: Python or SQL
+- [ ] Compute type decided: serverless or classic compute
+- [ ] Decide on multiple catalogs or schemas vs. all in one default schema
+- [ ] Consider what should be parameterized at the pipeline level to make deployment easy.
+- [ ] Consider [Multi-Schema Patterns](#multi-schema-patterns) below, ask if unclear on best choices.
+- [ ] Consider [Modern Defaults](#modern-defaults) below, ask if unclear on best choices.
 
-**Performance tuning**: Use [4-performance-tuning.md](4-performance-tuning.md) for optimizing pipelines with Liquid Clustering, state management, and best practices for high-performance streaming workloads. (Keywords: Liquid Clustering, optimization, state management)
-
-**Python API reference**: See [5-python-api.md](5-python-api.md) for the modern `pyspark.pipelines` (dp) API reference and migration from legacy `dlt` API patterns. (Keywords: dp API, dlt API comparison)
-
-**DLT migration**: Use [6-dlt-migration.md](6-dlt-migration.md) when migrating existing Delta Live Tables (DLT) pipelines to Spark Declarative Pipelines (SDP). (Keywords: migrating DLT pipelines to SDP)
-
-**Advanced configuration**: See [7-advanced-configuration.md](7-advanced-configuration.md) for advanced pipeline settings including development mode, continuous execution, notifications, Python dependencies, and custom cluster configurations. (Keywords: extra_settings parameter reference, examples)
-
-**Project initialization**: Use [8-project-initialization.md](8-project-initialization.md) for setting up new pipeline projects with `databricks pipelines init`, Asset Bundles, multi-environment deployments, and language detection logic. (Keywords: databricks pipelines init, Asset Bundles, language detection, migration guides)
-
-**AUTO CDC patterns**: Use [9-auto_cdc.md](9-auto_cdc.md) for implementing Change Data Capture with AUTO CDC, including Slow Changing Dimensions (SCD Type 1 and Type 2) for tracking changes and deduplication. (Keywords: AUTO CDC, Slow Changing Dimension, SCD, SCD Type 1, SCD Type 2, change data capture, deduplication)
-
----
-
-## Workflow
-
-1. Determine the task type:
-
-   **Setting up new project?** → Read [8-project-initialization.md](8-project-initialization.md) first
-   **Creating new pipeline?** → Read [1-ingestion-patterns.md](1-ingestion-patterns.md)
-   **Creating stream table?** → Read [2-streaming-patterns.md](2-streaming-patterns.md)
-   **Querying SCD history tables?** → Read [3-scd-query-patterns.md](3-scd-query-patterns.md)
-   **Implementing AUTO CDC or SCD?** → Read [9-auto_cdc.md](9-auto_cdc.md)
-   **Performance issues?** → Read [4-performance-tuning.md](4-performance-tuning.md)
-   **Using Python API?** → Read [5-python-api.md](5-python-api.md)
-   **Migrating from DLT?** → Read [6-dlt-migration.md](6-dlt-migration.md)
-   **Advanced configuration?** → Read [7-advanced-configuration.md](7-advanced-configuration.md)
-   **Validating?** → Read [validation-checklist.md](validation-checklist.md)
-
-2. Follow the instructions in the relevant guide
-
-3. Repeat for next task type
----
-
-## Official Documentation
-
-- **[Lakeflow Spark Declarative Pipelines Overview](https://docs.databricks.com/aws/en/ldp/)** - Main documentation hub
-- **[SQL Language Reference](https://docs.databricks.com/aws/en/ldp/developer/sql-dev)** - SQL syntax for streaming tables and materialized views
-- **[Python Language Reference](https://docs.databricks.com/aws/en/ldp/developer/python-ref)** - `pyspark.pipelines` API
-- **[Loading Data](https://docs.databricks.com/aws/en/ldp/load)** - Auto Loader, Kafka, Kinesis ingestion
-- **[Change Data Capture (CDC)](https://docs.databricks.com/aws/en/ldp/cdc)** - AUTO CDC, SCD Type 1/2
-- **[Developing Pipelines](https://docs.databricks.com/aws/en/ldp/develop)** - File structure, testing, validation
-- **[Liquid Clustering](https://docs.databricks.com/aws/en/delta/clustering)** - Modern data layout optimization
-
----
 
 ## Quick Start: Initialize New Pipeline Project
 
@@ -135,8 +89,72 @@ databricks bundle deploy --target prod
 ```
 
 
-### Medallion Architecture Pattern                                                                                                                                                                                                 
-                                                                                                                                                                                                                                     
+## Quick Reference
+
+| Concept | Details |
+|---------|---------|
+| **Names** | SDP = Spark Declarative Pipelines = LDP = Lakeflow Declarative Pipelines = Lakeflow Pipelines (all interchangeable) |
+| **Python Import** | `from pyspark import pipelines as dp` |
+| **Primary Decorators** | `@dp.table()`, `@dp.materialized_view()`, `@dp.temporary_view()` |
+| **Temporary Views** | `@dp.temporary_view()` creates in-pipeline temporary views (no catalog/schema, no cluster_by). Useful for intermediate logic before AUTO CDC or when a view needs multiple references without persistence. |
+| **Replaces** | Delta Live Tables (DLT) with `import dlt` |
+| **Based On** | Apache Spark 4.1+ (Databricks' modern data pipeline framework) |
+| **Docs** | https://docs.databricks.com/aws/en/ldp/developer/python-dev |
+
+---
+
+## Detailed guides
+
+**Ingestion patterns**: Use [1-ingestion-patterns.md](1-ingestion-patterns.md) when planning how to get new data into your Lakeflow pipeline —- covers file formats, batch/streaming options, and tips for incremental and full loads. (Keywords: Auto Loader, Kafka, Event Hub, Kinesis, file formats)
+
+**Streaming pipeline patterns**: See [2-streaming-patterns.md](2-streaming-patterns.md) for designing pipelines with streaming data sources, change data detection, triggers, and windowing. (Keywords: deduplication, windowing, stateful operations, joins)
+
+**SCD query patterns**: See [3-scd-query-patterns.md](3-scd-query-patterns.md) for querying Slowly Changing Dimensions Type 2 history tables, including current state queries, point-in-time analysis, temporal joins, and change tracking. (Keywords: SCD Type 2 history tables, temporal joins, querying historical data)
+
+**Performance tuning**: Use [4-performance-tuning.md](4-performance-tuning.md) for optimizing pipelines with Liquid Clustering, state management, and best practices for high-performance streaming workloads. (Keywords: Liquid Clustering, optimization, state management)
+
+**Python API reference**: See [5-python-api.md](5-python-api.md) for the modern `pyspark.pipelines` (dp) API reference and migration from legacy `dlt` API patterns. (Keywords: dp API, dlt API comparison)
+
+**DLT migration**: Use [6-dlt-migration.md](6-dlt-migration.md) when migrating existing Delta Live Tables (DLT) pipelines to Spark Declarative Pipelines (SDP). (Keywords: migrating DLT pipelines to SDP)
+
+**Advanced configuration**: See [7-advanced-configuration.md](7-advanced-configuration.md) for advanced pipeline settings including development mode, continuous execution, notifications, Python dependencies, and custom cluster configurations. (Keywords: extra_settings parameter reference, examples)
+
+**Project initialization**: Use [8-project-initialization.md](8-project-initialization.md) for setting up new pipeline projects with `databricks pipelines init`, Asset Bundles, multi-environment deployments, and language detection logic. (Keywords: databricks pipelines init, Asset Bundles, language detection, migration guides)
+
+**AUTO CDC patterns**: Use [9-auto_cdc.md](9-auto_cdc.md) for implementing Change Data Capture with AUTO CDC, including Slow Changing Dimensions (SCD Type 1 and Type 2) for tracking changes and deduplication. (Keywords: AUTO CDC, Slow Changing Dimension, SCD, SCD Type 1, SCD Type 2, change data capture, deduplication)
+
+---
+
+## Workflow
+
+1. Determine the task type:
+
+   **Setting up new project?** → Read [8-project-initialization.md](8-project-initialization.md) first
+   **Creating new pipeline?** → Read [1-ingestion-patterns.md](1-ingestion-patterns.md)
+   **Creating stream table?** → Read [2-streaming-patterns.md](2-streaming-patterns.md)
+   **Querying SCD history tables?** → Read [3-scd-query-patterns.md](3-scd-query-patterns.md)
+   **Implementing AUTO CDC or SCD?** → Read [9-auto_cdc.md](9-auto_cdc.md)
+   **Performance issues?** → Read [4-performance-tuning.md](4-performance-tuning.md)
+   **Using Python API?** → Read [5-python-api.md](5-python-api.md)
+   **Migrating from DLT?** → Read [6-dlt-migration.md](6-dlt-migration.md)
+   **Advanced configuration?** → Read [7-advanced-configuration.md](7-advanced-configuration.md)
+   **Validating?** → Read [validation-checklist.md](validation-checklist.md)
+
+2. Follow the instructions in the relevant guide
+
+3. Repeat for next task type
+---
+
+## Official Documentation
+
+- **[Lakeflow Spark Declarative Pipelines Overview](https://docs.databricks.com/aws/en/ldp/)** - Main documentation hub
+- **[SQL Language Reference](https://docs.databricks.com/aws/en/ldp/developer/sql-dev)** - SQL syntax for streaming tables and materialized views
+- **[Python Language Reference](https://docs.databricks.com/aws/en/ldp/developer/python-ref)** - `pyspark.pipelines` API
+- **[Loading Data](https://docs.databricks.com/aws/en/ldp/load)** - Auto Loader, Kafka, Kinesis ingestion
+- **[Change Data Capture (CDC)](https://docs.databricks.com/aws/en/ldp/cdc)** - AUTO CDC, SCD Type 1/2
+
+
+### Medallion Architecture Pattern                                                                                                                                                            
   **Bronze Layer (Raw)**                                                                                                                                                                                                             
   - Raw data ingested from sources in original format                                                                                                                                                                                
   - Minimal transformations (append-only, add metadata like `_ingested_at`, `_source_file`)                                                                                                                                          
@@ -175,15 +193,7 @@ Both work with the `transformations/**` glob pattern. Choose based on preference
 See **[8-project-initialization.md](8-project-initialization.md)** for complete details on bundle initialization, migration, and troubleshooting.
 
 ---
-
-## Alternative: Manual Workflow (Advanced)
-
-For rapid prototyping, experimentation, or when you prefer direct control without Asset Bundles, use the manual workflow with MCP tools.
-
-Use MCP tools to create, run, and iterate on **serverless SDP pipelines**. The **primary tool is `create_or_update_pipeline`** which handles the entire lifecycle.
-
-**IMPORTANT: Always create serverless pipelines (default).** Only use classic clusters if user explicitly requires R language, Spark RDD APIs, or JAR libraries.
-
+## General SDP development guidance
 ### Step 1: Write Pipeline Files Locally
 
 Create `.sql` or `.py` files in a local folder:
@@ -259,124 +269,21 @@ Example: `/Volumes/my_catalog/pipeline_metadata/orders_pipeline_metadata/schemas
 
 See **[8-project-initialization.md](8-project-initialization.md)** for detailed language detection logic.
 
-### Step 2: Upload to Databricks Workspace
 
-```python
-# MCP Tool: upload_folder
-upload_folder(
-    local_folder="/path/to/my_pipeline",
-    workspace_folder="/Workspace/Users/user@example.com/my_pipeline"
-)
-```
+## Option 1: Pipelines with DABs: 
+Use asset bundles and pipeline CLI.
+See [Quick Start](#quick-start) and **[8-project-initialization.md](8-project-initialization.md)** for complete details.
 
-### Step 3: Create/Update and Run Pipeline
+## Option 2: Manual Workflow (Advanced)
 
-Use **`create_or_update_pipeline`** - the main entry point. It:
-1. Searches for an existing pipeline with the same name (or uses `id` from `extra_settings`)
-2. Creates a new pipeline or updates the existing one
-3. Optionally starts a pipeline run
-4. Optionally waits for completion and returns detailed results
+For rapid prototyping, experimentation, or when you prefer direct control without Asset Bundles, use the manual workflow with MCP tools.
 
-```python
-# MCP Tool: create_or_update_pipeline
-result = create_or_update_pipeline(
-    name="my_orders_pipeline",
-    root_path="/Workspace/Users/user@example.com/my_pipeline",
-    catalog="my_catalog",
-    schema="my_schema",
-    workspace_file_paths=[
-        "/Workspace/Users/user@example.com/my_pipeline/bronze/ingest_orders.sql",
-        "/Workspace/Users/user@example.com/my_pipeline/silver/clean_orders.sql",
-        "/Workspace/Users/user@example.com/my_pipeline/gold/daily_summary.sql"
-    ],
-    start_run=True,           # Start immediately
-    wait_for_completion=True, # Wait and return final status
-    full_refresh=True,        # Full refresh all tables
-    timeout=1800              # 30 minute timeout
-)
-```
+Use MCP tools to create, run, and iterate on **serverless SDP pipelines**. The **primary tool is `create_or_update_pipeline`** which handles the entire lifecycle.
 
-**Result contains actionable information:**
-```python
-{
-    "success": True,                    # Did the operation succeed?
-    "pipeline_id": "abc-123",           # Pipeline ID for follow-up operations
-    "pipeline_name": "my_orders_pipeline",
-    "created": True,                    # True if new, False if updated
-    "state": "COMPLETED",               # COMPLETED, FAILED, TIMEOUT, etc.
-    "catalog": "my_catalog",            # Target catalog
-    "schema": "my_schema",              # Target schema
-    "duration_seconds": 45.2,           # Time taken
-    "message": "Pipeline created and completed successfully in 45.2s. Tables written to my_catalog.my_schema",
-    "error_message": None,              # Error summary if failed
-    "errors": []                        # Detailed error list if failed
-}
-```
+**IMPORTANT: Always create serverless pipelines (default).** Only use classic clusters if user explicitly requires R language, Spark RDD APIs, or JAR libraries.
 
-### Step 4: Handle Results
+See **[10-mcp-approach.md](10-mcp-approach.md)** for detailed guide.
 
-**On Success:**
-```python
-if result["success"]:
-    # Verify output tables
-    stats = get_table_details(
-        catalog="my_catalog",
-        schema="my_schema",
-        table_names=["bronze_orders", "silver_orders", "gold_daily_summary"]
-    )
-```
-
-**On Failure:**
-```python
-if not result["success"]:
-    # Message includes suggested next steps
-    print(result["message"])
-    # "Pipeline created but run failed. State: FAILED. Error: Column 'amount' not found.
-    #  Use get_pipeline_events(pipeline_id='abc-123') for full details."
-
-    # Get detailed errors
-    events = get_pipeline_events(pipeline_id=result["pipeline_id"], max_results=50)
-```
-
-### Step 5: Iterate Until Working
-
-1. Review errors from result or `get_pipeline_events`
-2. Fix issues in local files
-3. Re-upload with `upload_folder`
-4. Run `create_or_update_pipeline` again (it will update, not recreate)
-5. Repeat until `result["success"] == True`
-
----
-
-## Quick Reference: MCP Tools
-
-### Primary Tool
-
-| Tool | Description |
-|------|-------------|
-| **`create_or_update_pipeline`** | **Main entry point.** Creates or updates pipeline, optionally runs and waits. Returns detailed status with `success`, `state`, `errors`, and actionable `message`. |
-
-### Pipeline Management
-
-| Tool | Description |
-|------|-------------|
-| `find_pipeline_by_name` | Find existing pipeline by name, returns pipeline_id |
-| `get_pipeline` | Get pipeline configuration and current state |
-| `start_update` | Start pipeline run (`validate_only=True` for dry run) |
-| `get_update` | Poll update status (QUEUED, RUNNING, COMPLETED, FAILED) |
-| `stop_pipeline` | Stop a running pipeline |
-| `get_pipeline_events` | Get error messages for debugging failed runs |
-| `delete_pipeline` | Delete a pipeline |
-
-### Supporting Tools
-
-| Tool | Description |
-|------|-------------|
-| `upload_folder` | Upload local folder to workspace (parallel) |
-| `get_table_details` | Verify output tables have expected schema and row counts |
-| `execute_sql` | Run ad-hoc SQL to inspect data |
-
----
 
 ## Best Practices (2026)
 
@@ -401,7 +308,7 @@ if not result["success"]:
 - **Unity Catalog** (required for serverless)
 - **read_files()** when using SQL for cloud storage ingestion - see [1-ingestion-patterns.md](1-ingestion-patterns.md)
 
-### Multi-Schema Patterns (Bronze/Silver/Gold)
+### Multi-Schema Patterns
 
 **Default: Single target schema per pipeline.** Each pipeline has one target `catalog` and `schema` where all tables are written.
 
