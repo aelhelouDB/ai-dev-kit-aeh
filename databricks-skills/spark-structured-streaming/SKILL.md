@@ -56,12 +56,6 @@ df.writeStream \
 | **Cost Tuning** | Scheduled streaming, cluster sizing | See [cost-tuning.md](cost-tuning.md) |
 | **Deduplication** | Streaming deduplication at scale | See [streaming-deduplication-scale.md](streaming-deduplication-scale.md) |
 
-## Operations
-
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| **Error Handling** | Recovery patterns, dead letter queues | See [error-handling-recovery.md](error-handling-recovery.md) |
-
 ## Best Practices
 
 | Topic | Description | Reference |
