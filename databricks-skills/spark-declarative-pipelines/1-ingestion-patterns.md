@@ -26,6 +26,22 @@ FROM read_files(
 );
 ```
 
+### Bronze feeding AUTO CDC: use STREAM read_files(...)
+
+If the bronze table is the source for a downstream **AUTO CDC** flow (e.g. `FROM stream(bronze_orders_cdc)`), use **`FROM STREAM read_files(...)`** so the source is declared as streaming. Otherwise you may get: *"Cannot create a streaming table append once flow from a batch query"*.
+
+```sql
+CREATE OR REPLACE STREAMING TABLE bronze_orders_cdc AS
+SELECT ...,
+  current_timestamp() AS _ingested_at,
+  _metadata.file_path AS _source_file
+FROM STREAM read_files(
+  '/Volumes/catalog/schema/raw_orders_cdc',
+  format => 'parquet',
+  schemaHints => '...'
+);
+```
+
 ### Schema Evolution
 
 ```sql

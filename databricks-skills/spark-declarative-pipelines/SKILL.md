@@ -432,7 +432,9 @@ def enriched_orders():
 | **Streaming reads fail** | Use `FROM STREAM(table)` for streaming sources |
 | **Timeout during run** | Increase `timeout`, or use `wait_for_completion=False` and poll with `get_update` |
 | **MV doesn't refresh** | Enable row tracking on source tables |
-| **SCD2 schema errors** | Let SDP infer START_AT/END_AT columns |
+| **SCD2: query column not found** | Lakeflow uses `__START_AT` and `__END_AT` (double underscore), not `START_AT`/`END_AT`. Use `WHERE __END_AT IS NULL` for current rows. See [3-scd-patterns.md](3-scd-patterns.md). |
+| **AUTO CDC parse error at APPLY/SEQUENCE** | Put `APPLY AS DELETE WHEN` **before** `SEQUENCE BY`. Only list columns in `COLUMNS * EXCEPT (...)` that exist in the source (omit `_rescued_data` unless bronze uses rescue data). Omit `TRACK HISTORY ON *` if it causes "end of input" errors; default is equivalent. See [2-streaming-patterns.md](2-streaming-patterns.md). |
+| **"Cannot create streaming table from batch query"** | When bronze feeds an AUTO CDC flow, use `FROM STREAM read_files(...)` not `FROM read_files(...)`. See [1-ingestion-patterns.md](1-ingestion-patterns.md). |
 
 **For detailed errors**, the `result["message"]` from `create_or_update_pipeline` includes suggested next steps. Use `get_pipeline_events(pipeline_id=...)` for full stack traces.
 
