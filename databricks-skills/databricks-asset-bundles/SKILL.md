@@ -1,5 +1,5 @@
 ---
-name: asset-bundles
+name: databricks-asset-bundles
 description: "Create and configure Databricks Asset Bundles (DABs) with best practices for multi-environment deployments. Use when working with: (1) Creating new DAB projects, (2) Adding resources (dashboards, pipelines, jobs, alerts), (3) Configuring multi-environment deployments, (4) Setting up permissions, (5) Deploying or running bundle resources"
 ---
 
@@ -306,6 +306,14 @@ databricks bundle destroy -t prod --auto-approve
 3. **Mode**: `development` for dev/staging, `production` for prod
 4. **Groups**: Use `"users"` for all workspace users
 5. **Job permissions**: Verify custom groups exist; can't modify "admins"
+
+## Related Skills
+
+- **[spark-declarative-pipelines](../spark-declarative-pipelines/SKILL.md)** - pipeline definitions referenced by DABs
+- **[databricks-app-apx](../databricks-app-apx/SKILL.md)** - app deployment via DABs
+- **[databricks-app-python](../databricks-app-python/SKILL.md)** - Python app deployment via DABs
+- **[databricks-config](../databricks-config/SKILL.md)** - profile and authentication setup for CLI/SDK
+- **[databricks-jobs](../databricks-jobs/SKILL.md)** - job orchestration managed through bundles
 
 ## Resources
 
